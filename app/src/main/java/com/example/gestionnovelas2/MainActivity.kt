@@ -1,79 +1,138 @@
 package com.example.gestionnovelas2
 
 import android.annotation.SuppressLint
+import android.app.*
+import android.content.*
+import android.net.ConnectivityManager
+import android.os.AsyncTask
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.gestionnovelas2.ui.theme.GestionNovelas2Theme
-
-
-//pfernbar@gmail.com
+import com.google.firebase.database.*
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.loader.app.LoaderManager
+import androidx.loader.content.AsyncTaskLoader
+import androidx.loader.content.Loader
+import java.util.concurrent.CountDownLatch
 
 class MainActivity : ComponentActivity() {
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    private lateinit var firebaseDatabase: FirebaseDatabase
+    private lateinit var booksRef: DatabaseReference
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        firebaseDatabase = FirebaseDatabase.getInstance()
+        booksRef = firebaseDatabase.getReference("books")
+
+        // Initialiser AlarmManager pour planifier des tâches de synchronisation périodiques
+        schedulePeriodicSync()
+
+        // Register the network broadcast receiver to trigger data sync on network changes
+        registerReceiver(NetworkChangeReceiver(), NetworkChangeReceiver.getNetworkChangeIntentFilter())
+
         enableEdgeToEdge()
         setContent {
             GestionNovelas2Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) {
-                    Interface(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .wrapContentSize(Alignment.Center),
-                    )
-                }
+                Interface(booksRef)
             }
         }
     }
+
+    // Méthode pour planifier la synchronisation périodique avec AlarmManager
+    private fun schedulePeriodicSync() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, SyncBroadcastReceiver::class.java)
+        val requestCode = 0 // ID unique pour le PendingIntent
+
+        // Définir les flags en fonction de la version de l'API
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_CANCEL_CURRENT
+        }
+
+        // Créer le PendingIntent
+        val pendingIntent = PendingIntent.getBroadcast(this, requestCode, intent, flags)
+
+        // Planifier l'alarme pour se répéter toutes les heures
+        val intervalMillis = AlarmManager.INTERVAL_HOUR
+        val triggerAtMillis = SystemClock.elapsedRealtime() + intervalMillis
+
+        // Définir une alarme répétitive
+        alarmManager.setInexactRepeating(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            triggerAtMillis,
+            intervalMillis,
+            pendingIntent
+        )
+    }
+
 }
 
 data class Book(
+    val id: String? = null,
     val title: String,
     val author: String,
     val year: String,
     val summary: String,
-    var isfav : Boolean = false
+    var isfav: Boolean = false
 )
 
 @Composable
-fun Interface(modifier: Modifier = Modifier) {
+fun Interface(booksRef: DatabaseReference, modifier: Modifier = Modifier) {
     var newTitle by remember { mutableStateOf("") }
     var newAuthor by remember { mutableStateOf("") }
     var newYear by remember { mutableStateOf("") }
     var newSummary by remember { mutableStateOf("") }
     var bookList by remember { mutableStateOf(listOf<Book>()) }
+    val context = LocalContext.current
+    val loaderManager = remember {
+        (context as? ComponentActivity) ?: throw IllegalArgumentException("Context must be ComponentActivity")
+    }.let { LoaderManager.getInstance(it) }
+
+    val loaderId = 0 // ID unique pour le Loader
+
+    // Utiliser LaunchedEffect pour initialiser le Loader
+    LaunchedEffect(Unit) {
+        loaderManager.initLoader(loaderId, null, object : LoaderManager.LoaderCallbacks<List<Book>> {
+            override fun onCreateLoader(id: Int, args: Bundle?): Loader<List<Book>> {
+                return BookLoader(context, booksRef)
+            }
+
+
+            override fun onLoadFinished(
+                loader: androidx.loader.content.Loader<List<Book>>,
+                data: List<Book>?
+            ) {
+                bookList = data ?: emptyList()
+            }
+
+            override fun onLoaderReset(loader: androidx.loader.content.Loader<List<Book>>) {
+                bookList = emptyList()
+            }
+        })
+    }
 
     Surface(color = Color.Gray, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -106,7 +165,7 @@ fun Interface(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
-                singleLine = false
+                singleLine = true
             )
 
             TextField(
@@ -130,14 +189,20 @@ fun Interface(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
-                singleLine = true
+                singleLine = false
             )
 
-            // Bouton pour ajouter le livre
             Button(
                 onClick = {
                     if (newTitle.isNotBlank() && newAuthor.isNotBlank() && newYear.isNotBlank() && newSummary.isNotBlank()) {
-                        bookList = bookList + Book(newTitle, newAuthor, newYear, newSummary)
+                        val newBook = Book(
+                            title = newTitle,
+                            author = newAuthor,
+                            year = newYear,
+                            summary = newSummary
+                        )
+                        bookList = bookList + newBook
+                        AddBookTask(booksRef).execute(newBook)
                         newTitle = ""
                         newAuthor = ""
                         newYear = ""
@@ -150,8 +215,7 @@ fun Interface(modifier: Modifier = Modifier) {
             ) {
                 Text("Añadir")
             }
-
-
+            Log.d("Interface", "Book list size: ${bookList.size}")
             LazyColumn(modifier = Modifier.fillMaxSize()) {
 
                 val sortedBooks = bookList.sortedByDescending { it.isfav }
@@ -218,13 +282,77 @@ fun BookItem(book: Book, onDelete: () -> Unit, onFav: () -> Unit) {
     }
 }
 
-
-@Preview(showBackground = true)
-@Composable
-fun InterPreview() {
-    GestionNovelas2Theme {
-    Interface (modifier = Modifier
-            .fillMaxSize()
-            .wrapContentSize(Alignment.Center),)
+// AsyncTask pour ajouter un livre à Firebase
+class AddBookTask(private val booksRef: DatabaseReference) : AsyncTask<Book, Void, Void>() {
+    override fun doInBackground(vararg params: Book): Void? {
+        val book = params[0]
+        val newBookRef = booksRef.push() // Générer un nouvel ID pour le livre
+        newBookRef.setValue(book.copy(id = newBookRef.key)) // Ajouter le livre à Firebase
+        return null
     }
 }
+
+// AsyncTaskLoader pour charger les livres depuis Firebase
+class BookLoader(context: Context, private val booksRef: DatabaseReference) : AsyncTaskLoader<List<Book>>(context) {
+    private var bookList: List<Book>? = null
+
+    override fun loadInBackground(): List<Book>? {
+        val result = mutableListOf<Book>()
+        val latch = CountDownLatch(1) // Pour synchroniser le chargement
+
+        booksRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (bookSnapshot in snapshot.children) {
+                    val book = bookSnapshot.getValue(Book::class.java)
+                    book?.let { result.add(it) }
+                }
+                latch.countDown()
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                latch.countDown()
+                Log.e("FirebaseError", error.message)
+            }
+        })
+
+        latch.await() // Attendre que le chargement soit terminé
+        return result
+    }
+
+    override fun deliverResult(data: List<Book>?) {
+        if (data != null) {
+            bookList = data
+            super.deliverResult(data)
+        }
+    }
+}
+
+// BroadcastReceiver pour les changements de réseau
+class NetworkChangeReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context?, intent: Intent?) {
+        if (isConnectedToWifi(context)) {
+            Toast.makeText(context, "Wi-Fi Connected! Syncing data...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    companion object {
+        fun isConnectedToWifi(context: Context?): Boolean {
+            val cm = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val activeNetwork = cm.activeNetworkInfo
+            return activeNetwork != null && activeNetwork.type == ConnectivityManager.TYPE_WIFI
+        }
+
+        fun getNetworkChangeIntentFilter(): IntentFilter {
+            return IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+        }
+    }
+}
+
+// BroadcastReceiver pour gérer les événements AlarmManager
+class SyncBroadcastReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context?, intent: Intent?) {
+        Toast.makeText(context, "Alarm Triggered: Syncing Data!", Toast.LENGTH_SHORT).show()
+    }
+}
+
+

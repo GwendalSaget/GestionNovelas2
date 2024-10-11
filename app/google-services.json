@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "429249892311",
+    "firebase_url": "https://gestion-novelas-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "gestion-novelas",
+    "storage_bucket": "gestion-novelas.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:429249892311:android:c87b388bf66334207ec592",
+        "android_client_info": {
+          "package_name": "com.example.gestionnovelas2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2Pp8evJeL-5EZ0hFbnV6YlIaDyB_rpTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
