@@ -137,3 +137,6 @@ TextField(
 )
 
 remark: Almacena el texto ingresado para las reseñas, permitiendo un máximo de 100 caracteres.
+
+Enlace del repositorio : https://github.com/GwendalSaget/GestionNovelas2
+Enlace de la base de datos Firebase : https://gestion-novelas-default-rtdb.europe-west1.firebasedatabase.app/
