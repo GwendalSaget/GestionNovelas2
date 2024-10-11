@@ -138,5 +138,16 @@ TextField(
 
 remark: Almacena el texto ingresado para las reseñas, permitiendo un máximo de 100 caracteres.
 
+Añadiduras con el segundo plano : 
+
+1. AsyncTask
+AsyncTask es una clase utilizada para realizar operaciones en segundo plano de manera asíncrona. En este caso lo usamos para almacener los datos en la base de datos Firebase en segundo plano gracias al metodo doInBackground.
+2. AlarmManager
+AlarmManager permite programar tareas para que se ejecuten en momentos específicos, incluso si la aplicación no está en ejecución. Aqui setInexactRepeating permite programar una tarea que se ejecuta en intervalos regulares (por ejemplo, cada hora).
+3. BroadcastReceiver
+BroadcastReceiver permite activar la sincronización de datos cuando el dispositivo se conecta a una red Wi-Fi gracias a onReceive
+4. AsyncTaskLoader
+AsyncTaskLoader es una clase que permite cargar datos de manera asíncrona.
+
 Enlace del repositorio : https://github.com/GwendalSaget/GestionNovelas2
 Enlace de la base de datos Firebase : https://gestion-novelas-default-rtdb.europe-west1.firebasedatabase.app/
