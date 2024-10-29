@@ -6,6 +6,7 @@ import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.gestionnovelas2.ui.theme.GestionNovelas2Theme
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private lateinit var dbHelper: BookDatabaseHelper
@@ -49,8 +51,7 @@ data class Book(
     val title: String,
     val author: String,
     val year: String,
-    val summary: String,
-    var isfav: Boolean = false
+    val summary: String
 )
 
 class BookDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -61,8 +62,7 @@ class BookDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 $COLUMN_TITLE TEXT,
                 $COLUMN_AUTHOR TEXT,
                 $COLUMN_YEAR TEXT,
-                $COLUMN_SUMMARY TEXT,
-                $COLUMN_ISFAV INTEGER DEFAULT 0
+                $COLUMN_SUMMARY TEXT
             )
         """
         db.execSQL(createTableQuery)
@@ -82,7 +82,6 @@ class BookDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val COLUMN_AUTHOR = "author"
         const val COLUMN_YEAR = "year"
         const val COLUMN_SUMMARY = "summary"
-        const val COLUMN_ISFAV = "isfav"
     }
 }
 
@@ -96,13 +95,12 @@ class BookDao(private val dbHelper: BookDatabaseHelper) {
             put(BookDatabaseHelper.COLUMN_AUTHOR, book.author)
             put(BookDatabaseHelper.COLUMN_YEAR, book.year)
             put(BookDatabaseHelper.COLUMN_SUMMARY, book.summary)
-            put(BookDatabaseHelper.COLUMN_ISFAV, if (book.isfav) 1 else 0)
         }
         db.insert(BookDatabaseHelper.TABLE_BOOKS, null, values)
     }
 
     fun getAllBooks(): List<Book> {
-        val db = dbHelper.readableDatabase
+        val db = dbHelper.writableDatabase
         val cursor = db.query(
             BookDatabaseHelper.TABLE_BOOKS,
             null, null, null, null, null, null
@@ -116,8 +114,7 @@ class BookDao(private val dbHelper: BookDatabaseHelper) {
                     title = getString(getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_TITLE)),
                     author = getString(getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_AUTHOR)),
                     year = getString(getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_YEAR)),
-                    summary = getString(getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_SUMMARY)),
-                    isfav = getInt(getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_ISFAV)) == 1
+                    summary = getString(getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_SUMMARY))
                 )
                 books.add(book)
             }
@@ -131,12 +128,38 @@ class BookDao(private val dbHelper: BookDatabaseHelper) {
         db.delete(BookDatabaseHelper.TABLE_BOOKS, "${BookDatabaseHelper.COLUMN_ID} = ?", arrayOf(book.id))
     }
 
-    fun updateBook(book: Book) {
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            put(BookDatabaseHelper.COLUMN_ISFAV, if (book.isfav) 1 else 0)
+    fun backupBooksToFile(context: Context) {
+        val books = getAllBooks()
+        val file = File(context.filesDir, "backup_books.txt")
+        file.printWriter().use { out ->
+            books.forEach { book ->
+                out.println("${book.title},${book.author},${book.year},${book.summary}")
+            }
         }
-        db.update(BookDatabaseHelper.TABLE_BOOKS, values, "${BookDatabaseHelper.COLUMN_ID} = ?", arrayOf(book.id))
+    }
+
+    fun restoreBooksFromFile(context: Context): List<Book> {
+        val file = File(context.filesDir, "backup_books.txt")
+        val books = mutableListOf<Book>()
+
+        if (file.exists()) {
+            file.forEachLine { line ->
+                val parts = line.split(",")
+                if (parts.size == 4) {
+                    val book = Book(
+                        title = parts[0],
+                        author = parts[1],
+                        year = parts[2],
+                        summary = parts[3]
+                    )
+                    books.add(book)
+                }
+            }
+        } else {
+            Log.e("BookDao", "Backup file not found")
+        }
+
+        return books
     }
 }
 
@@ -153,12 +176,31 @@ fun Interface(dbHelper: BookDatabaseHelper, modifier: Modifier = Modifier, backg
 
     Surface(color = backgroundColor) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Column(modifier = Modifier.offset(0.dp, 50.dp)) {
+                Button(onClick = {
+                    dao.backupBooksToFile(context)
+                }) {
+                    Text("Almacenar libros en externo")
+                }
+            }
+            Column(modifier = Modifier.offset(250.dp, 0.dp)) {
+                Button(onClick = {
+                    bookList = dao.restoreBooksFromFile(context)
+                    newTitle = ""
+                    newAuthor = ""
+                    newYear = ""
+                    newSummary = ""
+                }) {
+                    Text("Restaurar libros")
+                }
+            }
+
             Text(
                 text = userData,
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            Column(modifier = Modifier.offset(150.dp, 750.dp)) {
+            Column(modifier = Modifier.offset(150.dp, 10.dp)) {
                 Button(onClick = {
                     val intent = Intent(context, SettingsPantalla::class.java)
                     context.startActivity(intent)
@@ -217,11 +259,6 @@ fun Interface(dbHelper: BookDatabaseHelper, modifier: Modifier = Modifier, backg
                         onDelete = {
                             dao.deleteBook(book)
                             bookList = dao.getAllBooks()
-                        },
-                        onFav = {
-                            book.isfav = !book.isfav
-                            dao.updateBook(book)
-                            bookList = dao.getAllBooks()
                         }
                     )
                 }
@@ -231,7 +268,7 @@ fun Interface(dbHelper: BookDatabaseHelper, modifier: Modifier = Modifier, backg
 }
 
 @Composable
-fun BookItem(book: Book, onDelete: () -> Unit, onFav: () -> Unit) {
+fun BookItem(book: Book, onDelete: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -239,10 +276,10 @@ fun BookItem(book: Book, onDelete: () -> Unit, onFav: () -> Unit) {
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text(text = "Titulo : ${book.title}", style = MaterialTheme.typography.titleMedium)
-            Text(text = "Autor : ${book.author}", style = MaterialTheme.typography.bodyLarge)
-            Text(text = "Año : ${book.year}", style = MaterialTheme.typography.bodyLarge)
-            Text(text = "Resumen : ${book.summary}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Título: ${book.title}", style = MaterialTheme.typography.titleMedium)
+            Text(text = "Autor: ${book.author}", style = MaterialTheme.typography.bodyLarge)
+            Text(text = "Año: ${book.year}", style = MaterialTheme.typography.bodyLarge)
+            Text(text = "Resumen: ${book.summary}", style = MaterialTheme.typography.bodyMedium)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -253,15 +290,10 @@ fun BookItem(book: Book, onDelete: () -> Unit, onFav: () -> Unit) {
             ) {
                 Text("Borrar")
             }
-            Button(
-                onClick = onFav,
-                colors = if (!book.isfav) ButtonDefaults.buttonColors(containerColor = Color.LightGray) else ButtonDefaults.buttonColors(containerColor = Color.Yellow),
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("Favorito")
-            }
         }
     }
 }
+
+
 
 
