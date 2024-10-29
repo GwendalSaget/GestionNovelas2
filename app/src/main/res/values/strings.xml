@@ -2,4 +2,6 @@
     <string name="app_name">Gestion de Novelas</string>
     <string name="anadir">Añadir novela</string>
     <string name="pref">Mis preferidas</string>
+    <string name="Principal">Settings</string>
+    <string name="Principal2">Main</string>
 </resources>
