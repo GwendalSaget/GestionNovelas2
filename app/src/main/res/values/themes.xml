@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.GestionNovelas2" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Thème personnalisé basé sur AppCompat -->
+    <style name="Theme.GestionNovelas2" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Ajoutez d'autres personnalisations ici -->
+    </style>
+
 </resources>
