@@ -10,7 +10,6 @@ class BookListWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (appWidgetId in appWidgetIds) {
-            // Mise à jour des données du widget
             updateWidget(context, appWidgetManager, appWidgetId)
         }
     }
