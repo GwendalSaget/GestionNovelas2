@@ -1,7 +1,11 @@
 package com.example.gestionnovelas2
 
+import BookForm
+import BookListFragment
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -11,7 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.example.gestionnovelas2.ui.theme.GestionNovelas2Theme
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
-
+@RequiresApi(Build.VERSION_CODES.O)
 class MainActivity : AppCompatActivity() {
     private lateinit var booksRef: DatabaseReference
 

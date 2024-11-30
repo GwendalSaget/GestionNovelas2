@@ -3,8 +3,8 @@
     android:initialLayout="@layout/widget_book_list"
     android:minWidth="200dp"
     android:minHeight="110dp"
-    android:updatePeriodMillis="100000"
+    android:updatePeriodMillis="500000"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"/>
 
-    <!-- Mise à jour toutes les 1.5 minutes -->
+    <!-- Mise à jour toutes les 7.5 minutes -->
