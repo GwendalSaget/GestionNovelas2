@@ -106,7 +106,7 @@ fun BookListScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 350.dp)) {
             val filteredBooks =
                 if (selectedBarrio == "Todos") bookList else bookList.filter { it.barrio == selectedBarrio }
             items(filteredBooks.sortedByDescending { it.isfav }) { book ->
