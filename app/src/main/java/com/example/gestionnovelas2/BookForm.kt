@@ -1,5 +1,5 @@
-import android.os.Build
-import androidx.annotation.RequiresApi
+package com.example.gestionnovelas2
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -8,23 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.firebase.database.DatabaseReference
 
-@RequiresApi(Build.VERSION_CODES.O)
-
-//https://stackoverflow.com/questions/7849067/how-can-i-convert-a-string-into-a-gzip-base64-string
-fun compressText(text: String): String {
-    val byteArray = text.toByteArray(Charsets.UTF_8)
-    val byteArrayOutputStream = java.io.ByteArrayOutputStream()
-    //GZIPOutputStream gzip = new GZIPOutputStream(b64os); équivalent en dessosu
-    val gzipOutputStream = java.util.zip.GZIPOutputStream(byteArrayOutputStream)
-    gzipOutputStream.write(byteArray)
-    gzipOutputStream.close()
-    val compressedBytes = byteArrayOutputStream.toByteArray()
-    return java.util.Base64.getEncoder().encodeToString(compressedBytes)
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun BookForm(booksRef: DatabaseReference) {
+fun BookForm(booksRef: DatabaseReference, barrioDefaut: String = "Tetuan") {
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
     var year by remember { mutableStateOf("") }
@@ -32,6 +17,7 @@ fun BookForm(booksRef: DatabaseReference) {
     var message by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.padding(16.dp)) {
+
         TextField(
             value = title,
             onValueChange = { title = it },
@@ -64,10 +50,9 @@ fun BookForm(booksRef: DatabaseReference) {
             onClick = {
                 if (title.isNotEmpty() && author.isNotEmpty() && year.isNotEmpty()) {
                     val bookId = booksRef.push().key ?: ""
-                    val compressedSummary = compressText(summary)
-                    val newBook = Book(bookId, title, author, year, compressedSummary)
+                    val newBook = Book(bookId, title, author, year, summary, barrio = barrioDefaut)
                     booksRef.child(bookId).setValue(newBook)
-                    message = "Libro añadido !"
+                    message = "Libro añadido en $barrioDefaut!"
                     title = ""
                     author = ""
                     year = ""
